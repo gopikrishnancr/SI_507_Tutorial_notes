@@ -1,0 +1,346 @@
+\documentclass[11pt,a4paper,reqno]{article}
+\usepackage{graphicx}
+
+\usepackage{amsmath}
+\usepackage[margin=1.4in]{geometry}
+\usepackage{authblk}
+\usepackage[english]{babel}
+\usepackage{listings} 
+\usepackage{color,linegoal}
+\definecolor{mygreen}{RGB}{28,172,0} 
+\definecolor{mylilas}{RGB}{170,55,241}
+\usepackage[many]{tcolorbox}
+\usetikzlibrary{calc}
+\usepackage[framed,numbered,autolinebreaks,useliterate]{mcode}
+
+\definecolor{myblue}{RGB}{0,163,243}
+
+\tcbset{mystyle/.style={
+		breakable,
+		enhanced,
+		outer arc=0pt,
+		arc=0pt,
+		colframe=myblue,
+		colback=myblue!20,
+		attach boxed title to top left,
+		boxed title style={
+			colback=myblue,
+			outer arc=0pt,
+			arc=0pt,
+			top=3pt,
+			bottom=3pt,
+		},
+		fonttitle=\sffamily
+	}
+}
+
+\newtcolorbox[auto counter,number within=section]{problem}[1][]{
+	mystyle,
+	title=Problem~\thetcbcounter,
+	overlay unbroken and first={
+		\path
+		let
+		\p1=(title.north east),
+		\p2=(frame.north east)
+		in
+		node[anchor=west,font=\sffamily,color=myblue,text width=\x2-\x1] 
+		at (title.east) {#1};
+	}
+}
+\newtcolorbox[auto counter]{algorithm}[1][]{
+	mystyle,
+	colback=white,
+	rightrule=0pt,
+	toprule=0pt,
+	title=Algorithm SLR.\thetcbcounter,
+	overlay unbroken and first={
+		\path
+		let
+		\p1=(title.north east),
+		\p2=(frame.north east)
+		in
+		node[anchor=west,font=\sffamily,color=myblue,text width=\x2-\x1] 
+		at (title.east) {#1};
+	}
+}
+
+%\usepackage{mathtools}  
+%\mathtoolsset{showonlyrefs} 
+
+\definecolor{SolutionColor}{gray}{0.85}
+%\usepackage[notref,notcite,color]{showkeys}
+\definecolor{refkey}{rgb}{0,0,1}
+\definecolor{labelkey}{rgb}{0,0,1}
+
+\usepackage{xcolor}     % for colour
+\usepackage{ntheorem}   % for theorem-like environments
+\usepackage{mdframed}   % for framing
+
+
+
+\mdfdefinestyle{cframe}{%
+linecolor=gray,leftmargin=2,%
+rightmargin=2,
+backgroundcolor=gray!40,%
+innertopmargin=4pt,%
+ntheorem
+}
+
+\begin{document}
+	
+	
+
+	\title{Tutorial 3 \\ SI 507 - Numerical Analysis \vspace{0.5cm} \\ \small{\bf Direct and Iterative methods}}
+	\author{}
+	\maketitle
+	\begin{tcolorbox}
+		[colback=green!5!white,colframe=cyan!75!black,fonttitle=\bfseries,title=Syllabus]
+	\begin{itemize}
+		\item[(D)] Direct methods
+		\begin{itemize}
+			\item[(D.a)] Thomas algorithm
+		\end{itemize}
+		\item[(I)] Iterative methods
+		\begin{itemize}
+			\item[(I.a)] Jacobi Iteration
+			\item[(I.b)] Gauss-Seidel Iteration 
+		\end{itemize}
+		\item[(R)] Root-finding algorithms 
+		\begin{itemize}
+			\item[(R.a)] Bisection method
+			\item[(R.b)] Regula-Falsi and Secant
+			\item[(R.c)] Newton-Raphson 
+			\item[(R.d)] Fixed point method
+		\end{itemize}
+	\end{itemize}
+	\end{tcolorbox}
+\section*{Tentative schedule}
+In tutorial-1 \emph{(4/10/2019)}, we will instruct how to install GNU-Octave from scratch, what are the functionalities, how to implement and run a code in GUN-Octave et c. Specifically, we implement the methods in (D) and (I) with simple generic problems as prototypes. Once the students are comfortable with running the codes, we instruct them to implement questions (6) and (9) in tutorial sheet 4. Depending on the availability of time, we show how these algorithms are actually used in solving a second order ordinary differential equation (minimal amount of theory of difference equations needs to provided for this).
+
+In tutorial-2 \emph{(9/10/2019)}, we implementfour root finding algorithms in (R). We instruct the coding part for simple generic problems. Questions (1) and (6) in tutorial sheet 6, and questions (1), (4) and (5) in tutorial sheet 7 are solved as examples. 
+\section{General Introduction}
+Numerical implementation of various schemes is an essential and complementing part of numerical analysis, where we test algorithms, improve and optimise codes and programs, and transfer them to industrial applications. There are many high-level programming languages (C, C++, Fortran, Python), packages (Fenics, Comsol, FreeFem, Pyclaw), and consolidated softwares (Matlab, GNU-Octave, Scilab, Mathematica, OptimJ, Maple) available in the market today, and often we need to choose a language or software that best suits with our purpose, gives fast results, and versatile to a wide range of problems. In the forthcoming prose, we actively use \emph{GNU-Octave}, which is a free-software, as our implementation platform.
+\section{Problems}
+\begin{problem}[Thomas algorithm for tri-diagonal systems]	 \label{pr:pr_1}
+	Use Thomas method to solve the tri-diagonal system of equations 
+	\begin{align}
+	2x_1 + 3x_2 = 1,&\quad x_1 + 2x_2 + 3x_3 = 4, \\x_2 + 2x_3 + 3x_4 = 5,&\quad x_3 + 2x_4 = 2.
+	\end{align}
+	\end{problem}
+\textbf{Solution} \vspace{0.2cm} \\ 
+We consider a general system $A{\pmb x} = {\pmb b}$, where $A$ is an $N \times n$ real and tri-diagonal matrix, ${\pmb x}$ and ${\pmb b}$ are $N \times 1$ vectors. While solving the system, we need to bear in mind, that in general Thomas algorithm in not stable. However, most of the systems we encounter have a symmetric positive definite or diagonally dominant coefficient matrix, A, in which case, Thomas algorithm is stable and very efficient (in fact, the operations count for Thomas algorithm is $\mathcal{O}(n)$).
+Firstly, assume that system $A{\pmb x} = {\pmb b}$ has the following structure:
+\begin{equation}
+\begin{pmatrix}
+b_1 & c_1 &  & & &0\\
+a_2 & b_2 & c_2 & & &\\
+ & a_3 & b_3 & \ddots &  &\\
+ &  & \ddots & \ddots &b_{N-1}& c_{N-1} \\
+0 &   & &   &a_N& b_N
+\end{pmatrix}\begin{pmatrix}
+x_1 \\ x_2 \\ x_3 \\ \vdots \\ x_{N}
+\end{pmatrix} = \begin{pmatrix}
+d_1 \\ d_2 \\ d_3 \\ \vdots \\ d_N
+\end{pmatrix}.
+\end{equation}
+In this case, the Thomas algorithm is as follows:
+\begin{tcolorbox}
+	[colback=magenta!5!white,colframe=pink!100!black,fonttitle=\bfseries,title=Thomas algorithm]
+	\begin{itemize}
+		\item[Step 1.] Define $p_i := a_i/b_{i-1}$, $b_i := b_i - p_ic_{i-1}$, $d_i := d_i - p_id_{i-1}$ for $i=2,\ldots,n$.
+		\textcolor{blue}{(Why $c_i$  and $a_i$ is unchanged?)}
+		\item[Step 2.] Back substitution: get $x_n = d_n/b_n$, $x_i = (d_i - c_ix_{i+1})/b_i$ for $i = n-1,\ldots,1$.
+	\end{itemize}
+	\end{tcolorbox}
+\noindent A GNU-Octave (matlab) code to implement this algorithm is given below.
+
+	\lstinputlisting{solve_thomas.m}
+Now, we will illustrate how to use this function to solve the system in Problem~\ref{pr:pr_1}. In Octave command window \emph{(Ctrl + 0)}, initialize the coefficient matrix $A$, and the load vector ${\pmb b}$.
+
+\begin{mdframed}[style=cframe,nobreak=true,align=center]
+	\begin{verbatim}
+>> A = [2 3 0 0;1 2 3 0;0 1 2 3;0 0 1 2]; b = [1;4;5;2];
+>>
+	\end{verbatim}
+\end{mdframed}
+
+Calling the function solve$\_$thomas(A,b) gives the following output. 
+
+ \begin{mdframed}[style=cframe,nobreak=true,align=center]
+ 	\begin{verbatim}
+>> solve_thomas(A,b)
+ans =
+-1.81818
+1.54545
+0.90909
+0.54545
+>>
+\end{verbatim}
+ \end{mdframed}
+To verify the results compute $A{\pmb x}$, and check if it is same as ${\pmb b}$.
+
+ \begin{mdframed}[style=cframe,nobreak=true,align=center]
+	\begin{verbatim}
+>> A*ans
+ans =
+1
+4
+5
+2
+>>
+\end{verbatim}
+\end{mdframed}
+We use the same procedure to verify the reliability of the encoded schemes in the next problems as well.
+\begin{problem}[Jacobi iteration method]	 \label{pr:pr_2}
+Implement Jacobi iteration method in GNU-Octave, and obtain the solution of the following linear system:
+\begin{equation}
+\begin{pmatrix}
+3 & 2\\1 & 2
+\end{pmatrix}\begin{pmatrix}
+x_1 \\ x_2
+\end{pmatrix} = \begin{pmatrix}
+1 \\-1
+\end{pmatrix}.
+\end{equation}
+Your code must include a precaution to avoid infinite loops.
+\end{problem}
+\textbf{Solution} \vspace{0.2cm} \\ 
+The Jacobi algorithm iteratively finds an approximate solution to the linear system $A{\pmb x} = {\pmb b}$ in the following way. For an iterative ${\pmb x}^{(k)}$, obtain the successive iterate ${\pmb x}^{(k+1)}$ as:
+\begin{equation}
+x_{m}^{(k+1)} = -\sum_{n\not=m}^N \dfrac{A_{mn}}{A_{mm}}x_{n}^{(k)} + \dfrac{b_{m}}{A_{mm}}.
+\end{equation}
+Jacobi algorithm is very efficient in the sense it could be vectorially implemented in GNU-Octave. This means, we completely avoid \emph{for} loops, and obtain modifications for vectors as such. For instance, consider a situation where $[1,2,3]$ is changed to $[2,3,4] = [1,2, 
+3] + 1$. We can implement this in two ways: the inefficient and slow \emph{for} loop method,
+\begin{mdframed}[style=cframe,nobreak=true,align=center]
+	\begin{verbatim}
+	b = [1 2 3]
+	for i=1:3
+	b(i) = b(i) + 1;
+	endfor
+	\end{verbatim}
+\end{mdframed}
+or the efficient vectorial method.
+\begin{mdframed}[style=cframe,nobreak=true,align=center]
+	\begin{verbatim}
+	b = [1 2 3]
+	b = b + 1;
+	\end{verbatim}
+\end{mdframed}
+The vectorial algorithm for Jacobi iteration method is given below. 
+\begin{tcolorbox}
+	[colback=magenta!5!white,colframe=pink!100!black,fonttitle=\bfseries,title=Jacobi iteration method]
+	\begin{itemize}
+		\item[Step 1.] Start with an initial guess ${\pmb x}^{(0)}$.
+		\item[Step 2.] Set the matrix $\widetilde{A}$, and the vector $\widetilde{\pmb b}$ as $\widetilde{A}_{ij} = (\delta_{ij} - 1)A_{ij}/A_{ii}$ and $\widetilde{b}_{i} = b_{i}/a_{ii}$ for $i,j=1,\cdots,N$. Here, $\delta_{ij}$ is the Kronecker delta.
+		\item[Step 3.] For $k \ge 0$, ${\pmb x}^{(k+1)} = \widetilde{A}{\pmb x}^{k} + \widetilde{b}$. 
+		\item[Step 4.] Stopping criteria: Compute the relative error $\epsilon_k = ||{\pmb x}^{(k+1)} - {\pmb x}^{(k)}||_2/||{\pmb x}^{(k)}||_2$. Fix a tolerance value $\epsilon_{\mathrm{tol}}$, and a maximum iteration number, $K_{\mathrm{max}}$. Exit the loop if either of $\epsilon_k < \epsilon_{\mathrm{tol}}$ or $k > K_{\mathrm{max}}$. 
+	\end{itemize}
+\end{tcolorbox}
+The maximum iteration number ensures that the loop does not become infinite. However, a message must be given to the user in this case, that the maximum iteration number is reached, and the relative error is not below the desired tolerance value within $K_{\max}$ number of iterations. A working code and the output are as follows.
+\lstinputlisting{solve_jacobi.m}
+\begin{mdframed}[style=cframe,nobreak=true,align=center]
+	\begin{verbatim}
+ 깝>> A = [3 2;1 2]; b = [-1;1]; x0 = [0;0]; tol = 1e-3; kmax = 100;
+>> solve_jacobi(A,b,x0,tol,kmax)
+Relative eroor is 5.836790e-04
+ans =
+-9.990855052583447e-01
+9.993141289437585e-01
+>>
+	\end{verbatim}
+\end{mdframed}
+\begin{problem}[Gauss-Seidel method]	 
+	Suppose the temperature of a metal rod of length 10 m has been measure to be 0$^o$C and 10$^o$C at each end, respectively. Find the temperatures $x_1,\,x_2,\,x_3$ and $x_4$ at the four points equally spaced with the interval of 2 m, assuming that the temperature at each point is the average of the temperatures of both neighbouring points. Use Gauss-Seidel method to solve the resulting linear system. \label{pr:pr_3}
+\end{problem}
+The linear system corresponding to Problem~\ref{pr:pr_3} is given by 
+\begin{align*}
+x_2 - 2x_1 = 0,&\quad x_1 - 2x_2 + x_3 = 0,\\
+x_2 - 2x_3 + x_4 = 0,&\quad x_3 - 2x_4 = -10.
+\end{align*}
+Gauss - Seidel method is a time-improvement over the Jacobi iteration method, where we use the recent updated values $(x^{(k+1)}_i)_{\{1 \leq i \leq m\}}$ to obtain $x^{(k+1)}_{m+1}$. The formal method is as follows:
+\begin{equation}
+x_{m+1}^{(k+1)} = -\sum_{n=1}^{m} \dfrac{A_{mn}}{A_{mm}}x_{n}^{(k+1)} -\sum_{n=m+2}^{N} \dfrac{A_{mn}}{A_{mm}}x_{n}^{(k)} +  \dfrac{b_{m}}{A_{mm}}.
+\end{equation}
+The algorithm is as follows:
+\begin{tcolorbox}
+	[colback=magenta!5!white,colframe=pink!100!black,fonttitle=\bfseries,title=Gauss-Seidel algorithm]
+	\begin{itemize}
+		\item[Step 1.] Start with an initial guess ${\pmb x}^{(0)}$.
+		\item[Step 2.] Set the matrix $\widetilde{A}$, and the vector $\widetilde{\pmb b}$ as $\widetilde{A}_{ij} = (\delta_{ij} - 1)A_{ij}/A_{ii}$ and $\widetilde{b}_{i} = b_{i}/a_{ii}$ for $i,j=1,\cdots,N$. Here, $\delta_{ij}$ is the Kronecker delta.
+		\item[Step 3.] For $k \ge 0$, set ${\pmb x}^{(k+1)} = {\pmb x}^{(k)}$. For $i = 1,\ldots,N$, 
+		${x}^{(k+1)}(i) = \widetilde{A}{\pmb x}^{(k+1)} + \widetilde{b}$. 
+		\item[Step 4.] Stopping criteria: Compute the relative error $\epsilon_k = ||{\pmb x}^{(k+1)} - {\pmb x}^{(k)}||_2/||{\pmb x}^{(k)}||_2$. Fix a tolerance value $\epsilon_{\mathrm{tol}}$, and a maximum iteration number, $K_{\mathrm{max}}$. Exit the loop if either of $\epsilon_k < \epsilon_{\mathrm{tol}}$ or $k > K_{\mathrm{max}}$. 
+	\end{itemize}
+\end{tcolorbox}
+A working code and the output are as follows.
+\lstinputlisting{solve_gseidel.m}
+\begin{mdframed}[style=cframe,nobreak=true,align=center]
+	\begin{verbatim}
+>> A = [-2 1 0 0;1 -2 1 0;0 1 -2 1; 0 0 1 -2]; b = [0;0;0;-10];
+>> x0 = [0;0;0;0;]; tol = 1e-3; kmax = 100;
+>> solve_gseidel(A,b,x0,tol,kmax)
+Relative eroor is 8.391027e-04
+ans =
+1.991432942450047e+00
+3.988785576075315e+00
+5.990927340462804e+00
+7.995463670231402e+00
+>>
+\end{verbatim}
+\end{mdframed}
+\section{Additional problems}
+\begin{itemize}
+	\item[(A.1)] Find the $n \times n$ matrix $B$, and the n-dimensional vector ${\pmb c}$ such that the Gauss-Seidel method can be written in the form
+	\begin{equation}
+	{\pmb x}^{(k+1)} = B{\pmb x}^{(k)} + {\pmb c}.
+	\label{eqn:gseid_vec}
+	\end{equation} 
+	Use~\eqref{eqn:gseid_vec} to eliminate the for loop 
+	\begin{mdframed}[style=cframe,nobreak=true,align=center]
+		\begin{verbatim}
+		for i = 1:N
+		x(i) = A(i,:)*x + b(i);         % Gauss-Seidel loop
+		endfor
+		\end{verbatim}
+	\end{mdframed}
+in the code for Gauss-Seidel method.
+\item[(A.2)] Let ${\pmb x}^{(7)}$ be the 7$\text{th}$ term of the Gauss-Seidel iterative sequence for the system
+\begin{align*}
+3x_1 + 2x_2 &= 1\\
+4x_1 + 12x_2 + 3x_3 &= -2 \\
+x_1 + 3x_2 - 5x_3 &= 3
+\end{align*}
+with ${\pmb x}^{(0)} = (0,\,0,\,0)^T$. If ${\pmb x}$ denotes the exact solution of the given system, then show that 
+\begin{equation}
+||{\pmb e}^{(7)}||_{\infty} \leq 0.058527664 ||{\pmb x}||_{\infty}.
+\end{equation}
+\item[(A.3)] Consider the boundary value problem $y''(x) + y'(x) + y(x) = \cos(x)$ for $0 < x < \pi$, $y(0) = 0 = y(\pi)$. Partition the interval $(0,\pi)$ into $N$ uniform subintervals $(x_{i},x_{i+1})$ for $0 \le i \le N-1$ with $x_{i+1} - x_{i} = h$. Use the difference formulae
+\begin{align*}
+y'(x) &= \dfrac{y_{i+1} - y_{i-1}}{2h},\\
+y''(x) &= \dfrac{y_{i+1} -2y_i + y_{i-1}}{h^2},
+\end{align*}
+to obtain the scheme, for $2 \le i \le N-2$ 
+\begin{equation}
+\label{eqn:sys_1}
+y_{i+1} (1 + h/2) + y_{i} (h^2 - 2) + y_{i-1} (1 - h/2) = h^2\cos(x_i),
+\end{equation}
+for $i = 1$ and $i = N-1$
+\begin{align}
+\label{eqn:sys_2}
+y_{2} (1 + h/2) + y_{1} (h^2 - 2) &= h^2\cos(x_1), \\
+\label{eqn:sys_3}
+y_{N-1} (h^2 - 2) + y_{N-2} (1 - h/2) &= h^2\cos(x_N).
+\end{align}
+Construct an $N -1 \times N - 1$ system $A{\pmb y} = {\pmb b}$ from~\eqref{eqn:sys_1}, \eqref{eqn:sys_2} and \eqref{eqn:sys_3}, where
+\begin{align}
+A = \begin{pmatrix}
+h^2 - 2 & 1 + h/2 & 0 & \cdots & 0 & 0\\
+1-h/2 & h^2 - 2 & 1+h/2 & \cdots & 0 & 0 \\
+\vdots & \vdots & \vdots & \vdots & 1-h/2 & h^2 - 2
+\end{pmatrix} \\
+{\pmb y} = (y_1 \cdots y_{N-1})^T,\,\textrm{and } {\pmb b} = h^2(\cos(x_1) \cdots\cos(x_{N-1}))^T.
+\end{align}
+Use Thomas algorithm, Jacobi iteration method and Gauss-Seidel method to obtain ${\pmb y}$. Use \emph{tic-toc} command in GNU-Octave to find which method is faster. 
+\end{itemize}
+
+\end{document}
